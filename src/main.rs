@@ -1,3 +1,4 @@
+mod scraper_utils;
 use std::collections::HashMap;
 
 use reqwest::Error;
@@ -36,13 +37,13 @@ impl ColumnIndices {
     }
 }
 
-fn get_text(cell: &scraper::ElementRef) -> String {
-    // The DOM allows multiple text nodes of an element, so join them all together.
-    cell.text().collect::<Vec<_>>().join("").trim().replace(",", "")
+fn get_numeric_text(cell: &scraper::ElementRef) -> String {
+    scraper_utils::get_element_text(cell).replace(",", "")
 }
 
 fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
     println!("Parsing year {}", year);
+    // TODO - wrap this
     let url = format!("https://www.ssa.gov/oact/NOTES/as120/LifeTables_Tbl_7_{}.html", year);
     let body = reqwest::blocking::get(url)?
         .text()?;
@@ -69,7 +70,7 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
             // look for values of "0" (for the row number) and "100000"
             for (column_index, cell) in entries.iter().enumerate() {
                 // The DOM allows multiple text nodes of an element, so join them all together.
-                let text: String = get_text(cell);
+                let text: String = get_numeric_text(cell);
                 if text == "0" {
                     // Only want the first column that has a value of "0"
                     row_number_index = row_number_index.or(Some(column_index));
@@ -101,10 +102,10 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 // Too few columns, this isn't a real row
                 continue
             }
-            let row_number_text = get_text(&entries[column_indices.row_number]);
+            let row_number_text = get_numeric_text(&entries[column_indices.row_number]);
             if row_number_text.parse::<u32>().and_then(|x| Ok(x == next_row_number)) == Ok(true) {
                 next_row_number += 1;
-                let male_value = get_text(&entries[column_indices.male]).parse::<u32>();
+                let male_value = get_numeric_text(&entries[column_indices.male]).parse::<u32>();
                 let male_value = male_value.expect("Couldn't parse value in male cell");
                 // The page normalizes all values by assuming 100,000 babies were born in the
                 // given year, so scale this down to a range of 0-1.
@@ -115,7 +116,7 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 }
                 male_still_alive_values.push(male_value);
 
-                let female_value = get_text(&entries[column_indices.female]).parse::<u32>();
+                let female_value = get_numeric_text(&entries[column_indices.female]).parse::<u32>();
                 let female_value = female_value.expect("Couldn't parse value in female cell");
                 let female_value = female_value as f32 / 100000_f32;
                 assert!(female_value <= 1.0, "female value is out of range");

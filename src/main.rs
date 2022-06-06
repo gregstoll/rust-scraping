@@ -53,9 +53,8 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
         table.select(&TR).count()
     }).expect("No tables found in document?");
 
-    // TODO - better name
-    let mut male_values = Vec::<f32>::new();
-    let mut female_values = Vec::<f32>::new();
+    let mut male_still_alive_values = Vec::<f32>::new();
+    let mut female_still_alive_values = Vec::<f32>::new();
     // Find the columns we want
     let mut column_indices: Option<ColumnIndices> = None;
     let mut next_row_number: u32 = 0;
@@ -107,31 +106,32 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 next_row_number += 1;
                 let male_value = get_text(&entries[column_indices.male]).parse::<u32>();
                 let male_value = male_value.expect("Couldn't parse value in male cell");
-                // TODO document this
+                // The page normalizes all values by assuming 100,000 babies were born in the
+                // given year, so scale this down to a range of 0-1.
                 let male_value = male_value as f32 / 100000_f32;
                 assert!(male_value <= 1.0, "male value is out of range");
-                if male_values.len() > 0 {
-                    assert!(*male_values.last().unwrap() >= male_value, "male values are not decreasing");
+                if male_still_alive_values.len() > 0 {
+                    assert!(*male_still_alive_values.last().unwrap() >= male_value, "male values are not decreasing");
                 }
-                male_values.push(male_value);
+                male_still_alive_values.push(male_value);
 
                 let female_value = get_text(&entries[column_indices.female]).parse::<u32>();
                 let female_value = female_value.expect("Couldn't parse value in female cell");
                 let female_value = female_value as f32 / 100000_f32;
                 assert!(female_value <= 1.0, "female value is out of range");
-                if female_values.len() > 0 {
-                    assert!(*female_values.last().unwrap() >= female_value, "female values are not decreasing");
+                if female_still_alive_values.len() > 0 {
+                    assert!(*female_still_alive_values.last().unwrap() >= female_value, "female values are not decreasing");
                 }
-                female_values.push(female_value);
+                female_still_alive_values.push(female_value);
             }
         }
     }
-    assert_eq!(male_values.len(), female_values.len());
-    assert!(male_values.len() > 50);
+    assert_eq!(male_still_alive_values.len(), female_still_alive_values.len());
+    assert!(male_still_alive_values.len() > 50);
 
     Ok(SurvivorsAtAgeTable {
-        male: male_values,
-        female: female_values
+        male: male_still_alive_values,
+        female: female_still_alive_values
     })
 }
 

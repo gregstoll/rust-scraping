@@ -29,5 +29,5 @@ pub fn do_throttled_request(url: &str) -> Result<String, Error> {
     }
     let response = reqwest::blocking::get(url)?;
     last_request_mutex.replace(now);
-    Ok(response.text()?)
+    response.text()
 }

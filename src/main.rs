@@ -1,5 +1,5 @@
 mod scraper_utils;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File, io::Write};
 
 use reqwest::Error;
 use scraper::{Html, Selector};
@@ -38,7 +38,7 @@ impl ColumnIndices {
 }
 
 fn get_numeric_text(cell: &scraper::ElementRef) -> String {
-    scraper_utils::get_element_text(cell).replace(",", "")
+    scraper_utils::get_element_text(cell).replace(',', "")
 }
 
 fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
@@ -86,11 +86,11 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 }
             }
             assert_eq!(male_index.is_some(), female_index.is_some(), "Found male column but not female?");
-            if male_index.is_some() {
+            if let Some(male_index) = male_index {
                 assert!(row_number_index.is_some(), "Found male column but not row number?");
                 column_indices = Some(ColumnIndices {
                     row_number: row_number_index.unwrap(),
-                    male: male_index.unwrap(),
+                    male: male_index,
                     female: female_index.unwrap()
                 });
             }
@@ -101,7 +101,7 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 continue
             }
             let row_number_text = get_numeric_text(&entries[column_indices.row_number]);
-            if row_number_text.parse::<u32>().and_then(|x| Ok(x == next_row_number)) == Ok(true) {
+            if row_number_text.parse::<u32>().map(|x| x == next_row_number) == Ok(true) {
                 next_row_number += 1;
                 let male_value = get_numeric_text(&entries[column_indices.male]).parse::<u32>();
                 let male_value = male_value.expect("Couldn't parse value in male cell");
@@ -109,7 +109,7 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 // given year, so scale this down to a range of 0-1.
                 let male_value = male_value as f32 / 100000_f32;
                 assert!(male_value <= 1.0, "male value is out of range");
-                if male_still_alive_values.len() > 0 {
+                if !male_still_alive_values.is_empty() {
                     assert!(*male_still_alive_values.last().unwrap() >= male_value, "male values are not decreasing");
                 }
                 male_still_alive_values.push(male_value);
@@ -118,7 +118,7 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 let female_value = female_value.expect("Couldn't parse value in female cell");
                 let female_value = female_value as f32 / 100000_f32;
                 assert!(female_value <= 1.0, "female value is out of range");
-                if female_still_alive_values.len() > 0 {
+                if !female_still_alive_values.is_empty() {
                     assert!(*female_still_alive_values.last().unwrap() >= female_value, "female values are not decreasing");
                 }
                 female_still_alive_values.push(female_value);
@@ -134,10 +134,28 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
     })
 }
 
-fn main() -> Result<(), Error> {
+fn write_data(data: HashMap<u32, SurvivorsAtAgeTable>) -> std::io::Result<()> {
+    let mut json_data = json::object! {};
+    let mut keys = data.keys().collect::<Vec<_>>();
+    keys.sort();
+    for &key in keys {
+        let value = data.get(&key).unwrap();
+        let json_value = json::object! {
+            "female": value.female.clone(),
+            "male": value.male.clone()
+        };
+        json_data[key.to_string()] = json_value;
+    }
+    let mut file = File::create("fileTables.json")?;
+    write!(&mut file, "{}", json::stringify_pretty(json_data, 4))?;
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_data: HashMap<u32, SurvivorsAtAgeTable> = HashMap::new();
     for year in (1900..=2100).step_by(10) {
         all_data.insert(year, parse_page(year)?);
     }
-    return Ok(());
+    write_data(all_data)?;
+    Ok(())
 }

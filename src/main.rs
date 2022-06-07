@@ -43,10 +43,8 @@ fn get_numeric_text(cell: &scraper::ElementRef) -> String {
 
 fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
     println!("Parsing year {}", year);
-    // TODO - wrap this
     let url = format!("https://www.ssa.gov/oact/NOTES/as120/LifeTables_Tbl_7_{}.html", year);
-    let body = reqwest::blocking::get(url)?
-        .text()?;
+    let body = scraper_utils::do_throttled_request(&url)?;
 
     let document = Html::parse_document(&body);
     // Find the table with the most rows

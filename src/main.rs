@@ -67,7 +67,6 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
             let mut female_index: Option<usize> = None;
             // look for values of "0" (for the row number) and "100000"
             for (column_index, cell) in entries.iter().enumerate() {
-                // The DOM allows multiple text nodes of an element, so join them all together.
                 let text: String = get_numeric_text(cell);
                 if text == "0" {
                     // Only want the first column that has a value of "0"

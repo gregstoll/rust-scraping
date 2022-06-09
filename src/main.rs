@@ -108,8 +108,8 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 // given year, so scale this down to a range of 0-1.
                 let male_value = male_value as f32 / 100000_f32;
                 assert!(male_value <= 1.0, "male value is out of range");
-                if !male_still_alive_values.is_empty() {
-                    assert!(*male_still_alive_values.last().unwrap() >= male_value, "male values are not decreasing");
+                if let Some(last_value) = male_still_alive_values.last() {
+                    assert!(*last_value >= male_value, "male values are not decreasing");
                 }
                 male_still_alive_values.push(male_value);
 
@@ -117,8 +117,8 @@ fn parse_page(year: u32) -> Result<SurvivorsAtAgeTable, Error> {
                 let female_value = female_value.expect("Couldn't parse value in female cell");
                 let female_value = female_value as f32 / 100000_f32;
                 assert!(female_value <= 1.0, "female value is out of range");
-                if !female_still_alive_values.is_empty() {
-                    assert!(*female_still_alive_values.last().unwrap() >= female_value, "female values are not decreasing");
+                if let Some(last_value) = female_still_alive_values.last() {
+                    assert!(*last_value >= female_value, "female values are not decreasing");
                 }
                 female_still_alive_values.push(female_value);
             }
